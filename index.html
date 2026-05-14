@@ -788,6 +788,7 @@ function applyGuessResult(me, n, result) {
     meP.won = true;
     gameOverReason = `${meP.name} guessed ${state.players[oppI].name}'s secret (${n}).`;
     vibrate([40, 60, 100]);
+    if (state.mode === 'online') sendReveal();
     state.screen = 'gameover'; render();
     return;
   }
@@ -795,6 +796,7 @@ function applyGuessResult(me, n, result) {
     meP.dead = true; state.players[oppI].won = true;
     gameOverReason = `${meP.name} stepped on ${state.players[oppI].name}'s trap (${n})!`;
     vibrate([100, 80, 100, 80, 200]);
+    if (state.mode === 'online') sendReveal();
     state.screen = 'gameover'; render();
     return;
   }
@@ -837,18 +839,36 @@ function showReveal(ctx) { revealCtx = ctx; state.screen = 'reveal'; render(); }
 function afterReveal() { revealCtx.after(); }
 
 // ---------- game over ----------
+function playerRevealBlock(p) {
+  return `
+    <div style="background: var(--bg-2); border-radius: 12px; padding: 14px; margin: 8px 0;">
+      <div style="font-weight:700; font-size:15px; margin-bottom: 10px;">${p.name}</div>
+      <div style="display:flex; gap:8px;">
+        <div style="flex:1; padding: 10px; background: rgba(6,214,160,0.12); border-radius: 8px; text-align:center;">
+          <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Secret</div>
+          <div style="font-size:32px; font-weight:800; color:var(--accent-2); line-height:1.2;">${p.secret ?? '?'}</div>
+        </div>
+        <div style="flex:1; padding: 10px; background: rgba(239,71,111,0.12); border-radius: 8px; text-align:center;">
+          <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Trap</div>
+          <div style="font-size:32px; font-weight:800; color:var(--danger); line-height:1.2;">${p.trap ?? '?'}</div>
+        </div>
+      </div>
+    </div>`;
+}
 function renderGameOver(root) {
   const winner = state.players.find(p => p.won) || state.players[0];
+  const p1 = state.players[0], p2 = state.players[1];
+  const stillWaiting = state.mode === 'online' && (p1.secret == null || p2.secret == null);
   root.innerHTML = `
     <h1>🏆 Game Over</h1>
     <h2 style="color:var(--accent-2)">${winner.name} wins!</h2>
     <div class="card" style="text-align:center;">
       <div style="font-size:14px; color:var(--muted); margin-bottom:16px;">${gameOverReason}</div>
-      <div style="text-align:left; margin:14px 0; padding: 14px; background: var(--bg-2); border-radius: 10px;">
-        <div><b>${state.players[0].name}</b> · secret <span class="badge safe">${state.players[0].secret}</span> · trap <span class="badge">${state.players[0].trap}</span></div>
-        <div style="margin-top:8px;"><b>${state.players[1].name}</b> · secret <span class="badge safe">${state.players[1].secret}</span> · trap <span class="badge">${state.players[1].trap}</span></div>
-      </div>
-      <button class="success" onclick="resetGame()">🔁 Play Again</button>
+      <div style="font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin: 18px 0 4px;">🎭 The Reveal</div>
+      ${stillWaiting ? '<div class="hint">Waiting for opponent\'s reveal…</div>' : ''}
+      ${playerRevealBlock(p1)}
+      ${playerRevealBlock(p2)}
+      <button class="success" onclick="resetGame()" style="margin-top:14px;">🔁 Play Again</button>
       <button class="secondary" onclick="backToMenu()">← Main Menu</button>
     </div>
   `;
@@ -1186,6 +1206,10 @@ function setupConnHandlers(conn) {
 function sendMsg(msg) {
   if (state.online.conn && state.online.conn.open) state.online.conn.send(msg);
 }
+function sendReveal() {
+  const me = state.players[state.online.myIndex];
+  sendMsg({ type: 'reveal', secret: me.secret, trap: me.trap });
+}
 function handleMsg(msg) {
   if (msg.type === 'range') {
     // joiner adopts host's range for this session (don't persist)
@@ -1207,6 +1231,11 @@ function handleMsg(msg) {
     applyGuessResult(oppI, msg.n, result);
   } else if (msg.type === 'result') {
     applyGuessResult(state.online.myIndex, msg.n, msg.result);
+  } else if (msg.type === 'reveal') {
+    const oppI = 1 - state.online.myIndex;
+    state.players[oppI].secret = msg.secret;
+    state.players[oppI].trap = msg.trap;
+    if (state.screen === 'gameover') render();
   }
 }
 function startOnlineGame() {
