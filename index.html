@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0f1220" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Guess Duel" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f1220'/%3E%3Ctext x='50' y='68' font-size='62' text-anchor='middle' font-family='system-ui' fill='%23ffd166'%3E?%3C/text%3E%3C/svg%3E" />
+<title>Guess Duel — Number Game</title>
+<style>
+  :root {
+    --bg: #0f1220;
+    --bg-2: #1a1f38;
+    --card: #232a47;
+    --card-hi: #2c3554;
+    --accent: #ffd166;
+    --accent-2: #06d6a0;
+    --danger: #ef476f;
+    --muted: #8a92b2;
+    --text: #f4f6fb;
+    --border: #3a4470;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: radial-gradient(ellipse at top, #1a1f38 0%, #0f1220 60%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input { -webkit-user-select: text; user-select: text; }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .screen { animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  h1 {
+    text-align: center;
+    font-size: 28px;
+    margin: 8px 0 4px;
+    letter-spacing: 0.5px;
+  }
+  h2 {
+    text-align: center;
+    font-size: 20px;
+    margin: 0 0 16px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .sub {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 20px;
+    line-height: 1.4;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  }
+  button {
+    width: 100%;
+    padding: 16px;
+    font-size: 17px;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #1a1f38;
+    cursor: pointer;
+    margin: 6px 0;
+    transition: transform 0.05s, opacity 0.2s, background 0.2s;
+    font-family: inherit;
+  }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary {
+    background: var(--bg-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  button.danger { background: var(--danger); color: white; }
+  button.success { background: var(--accent-2); color: #0f1220; }
+  button.ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  input[type="number"], input[type="password"], input[type="text"] {
+    width: 100%;
+    padding: 14px;
+    font-size: 18px;
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    color: var(--text);
+    border-radius: 10px;
+    text-align: center;
+    margin: 6px 0;
+    font-family: inherit;
+  }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
+    -webkit-appearance: none; margin: 0;
+  }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .range-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+    margin: 12px 0;
+  }
+  .num-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-2);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+    min-height: 24px;
+  }
+  .num-cell.eliminated {
+    background: rgba(239,71,111,0.12);
+    color: #5a2a3a;
+    text-decoration: line-through;
+  }
+  .num-cell.live { background: var(--accent-2); color: #0f1220; }
+  .history { max-height: 200px; overflow-y: auto; margin-top: 6px; }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--bg-2);
+    border-radius: 8px;
+    margin: 4px 0;
+    font-size: 14px;
+  }
+  .arrow-up { color: var(--accent-2); font-weight: 600; }
+  .arrow-down { color: var(--danger); font-weight: 600; }
+  .big-number {
+    text-align: center;
+    font-size: 64px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 12px 0;
+    letter-spacing: 2px;
+    min-height: 80px;
+    line-height: 80px;
+  }
+  .big-number.pop { animation: popIn 0.3s ease; }
+  @keyframes popIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .keypad button {
+    margin: 0;
+    background: var(--bg-2);
+    color: var(--text);
+    font-size: 22px;
+    padding: 18px 0;
+  }
+  .keypad button.action { background: var(--accent); color: #0f1220; }
+  .keypad button.clear { background: var(--border); }
+  .turn-banner {
+    text-align: center;
+    padding: 10px;
+    background: var(--bg-2);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .room-code {
+    font-size: 32px;
+    text-align: center;
+    letter-spacing: 6px;
+    color: var(--accent);
+    font-weight: 700;
+    padding: 16px;
+    background: var(--bg-2);
+    border-radius: 10px;
+    margin: 12px 0;
+    font-family: "SF Mono", "Courier New", monospace;
+  }
+  .footer-note {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: auto;
+    padding: 16px 0 8px;
+  }
+  .status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    margin-right: 6px;
+  }
+  .status-dot.connected { background: var(--accent-2); animation: pulse 1.5s infinite; }
+  .status-dot.error { background: var(--danger); }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(6,214,160,0.5); }
+    50%     { box-shadow: 0 0 0 8px rgba(6,214,160,0); }
+  }
+  .badge {
+    background: var(--danger);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 4px;
+  }
+  .badge.safe { background: var(--accent-2); color: #0f1220; }
+  .hint { font-size: 13px; color: var(--muted); text-align: center; margin: 8px 0; }
+  .stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .stat {
+    text-align: center;
+    background: var(--bg-2);
+    border-radius: 10px;
+    padding: 8px 14px;
+    flex: 1;
+    margin: 0 4px;
+  }
+  .stat .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat .value { font-size: 18px; font-weight: 700; color: var(--accent); }
+
+  .option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px;
+    background: var(--bg-2);
+    border-radius: 10px;
+    margin: 6px 0;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .option.active { border-color: var(--accent); background: var(--card-hi); }
+  .option .opt-title { font-weight: 600; }
+  .option .opt-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .option .check {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    margin-left: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .option.active .check {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #0f1220;
+  }
+  .option.active .check::after { content: "✓"; font-weight: 700; font-size: 14px; }
+
+  .toast {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: var(--card);
+    color: var(--text);
+    padding: 12px 20px;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    border-left: 4px solid var(--accent);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { border-left-color: var(--danger); }
+  .toast.success { border-left-color: var(--accent-2); }
+
+  .confetti {
+    position: fixed;
+    top: -50px;
+    font-size: 24px;
+    pointer-events: none;
+    z-index: 9999;
+    animation: fall 2.2s linear forwards;
+  }
+  @keyframes fall {
+    0%   { transform: translateY(0) rotate(0); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0.5; }
+  }
+
+  .menu-icon {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    width: auto;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .topbar button { width: auto; padding: 8px 12px; margin: 0; font-size: 14px; }
+
+  .progress-bar {
+    height: 6px;
+    background: var(--bg-2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent));
+    transition: width 0.4s ease;
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast"></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+// ---------- settings (persisted) ----------
+const SETTINGS_KEY = 'guessduel_settings_v1';
+const defaultSettings = {
+  minNum: 1,
+  maxNum: 50,
+  playerName: 'You',
+  haptics: true,
+};
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return { ...defaultSettings };
+    return { ...defaultSettings, ...JSON.parse(raw) };
+  } catch { return { ...defaultSettings }; }
+}
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
+}
+const settings = loadSettings();
+
+// ---------- state ----------
+function freshPlayer(name) {
+  return { name, secret: null, trap: null, guesses: [], lo: settings.minNum, hi: settings.maxNum, eliminated: new Set(), dead: false, won: false };
+}
+const state = {
+  screen: 'menu',
+  mode: null,
+  players: [freshPlayer('Player 1'), freshPlayer('Player 2')],
+  setupTurn: 0,
+  guessTurn: 0,
+  online: {
+    peer: null, conn: null, isHost: false, myIndex: 0,
+    code: null, status: 'disconnected', error: null,
+  },
+  pendingGuess: '',
+};
+let myReady = false, oppReady = false;
+let handoffCtx = {}, revealCtx = {}, gameOverReason = '';
+const app = document.getElementById('app');
+
+// ---------- helpers ----------
+function validNum(v) { return Number.isInteger(v) && v >= settings.minNum && v <= settings.maxNum; }
+function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+function vibrate(ms) { if (settings.haptics && navigator.vibrate) navigator.vibrate(ms); }
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2000);
+}
+function confetti() {
+  const emojis = ['🎉','✨','🎊','⭐','🏆','💫'];
+  for (let i = 0; i < 36; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.textContent = emojis[i % emojis.length];
+    c.style.left = (Math.random()*100) + 'vw';
+    c.style.animationDelay = (Math.random()*0.5) + 's';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 3000);
+  }
+}
+
+// ---------- render dispatch ----------
+function render() {
+  const screens = {
+    menu: renderMenu,
+    settings: renderSettings,
+    pickRange: renderPickRange,
+    setupSecret: renderSetupSecret,
+    setupTrap: renderSetupTrap,
+    handoff: renderHandoff,
+    guess: renderGuess,
+    reveal: renderReveal,
+    gameover: renderGameOver,
+    onlineMenu: renderOnlineMenu,
+    onlineHost: renderOnlineHost,
+    onlineJoin: renderOnlineJoin,
+    onlineWaitOpp: renderOnlineWaitOpp,
+  };
+  app.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'screen';
+  app.appendChild(wrap);
+  screens[state.screen](wrap);
+}
+
+// ---------- menu ----------
+function renderMenu(root) {
+  root.innerHTML = `
+    <h1>Guess Duel</h1>
+    <h2>Number Game</h2>
+    <div class="sub">Each player picks a secret + trap. Guess your opponent's secret to win — hit their trap and you lose instantly.</div>
+    <div class="card">
+      <button onclick="startLocal()">📱 Pass &amp; Play</button>
+      <button onclick="startAI()">🤖 Vs. AI Bot</button>
+      <button onclick="goOnlineMenu()">🌐 Online Match</button>
+    </div>
+    <div class="card">
+      <button class="secondary" onclick="go('settings')">⚙️ Settings</button>
+      <button class="secondary" onclick="downloadApp()">📥 Save to Device</button>
+    </div>
+    <div class="footer-note">Range ${settings.minNum}–${settings.maxNum} · v1.1</div>
+  `;
+}
+
+// ---------- settings ----------
+const RANGE_PRESETS = [
+  { min: 1, max: 20,  label: '1–20',  sub: 'Sprint — quick games' },
+  { min: 1, max: 50,  label: '1–50',  sub: 'Classic — default' },
+  { min: 1, max: 100, label: '1–100', sub: 'Marathon — deep strategy' },
+];
+function renderSettings(root) {
+  const isCustom = !RANGE_PRESETS.some(p => p.min === settings.minNum && p.max === settings.maxNum);
+  let opts = RANGE_PRESETS.map(p => `
+    <div class="option ${(!isCustom && settings.minNum===p.min && settings.maxNum===p.max) ? 'active' : ''}" onclick="setRange(${p.min},${p.max})">
+      <div>
+        <div class="opt-title">${p.label}</div>
+        <div class="opt-sub">${p.sub}</div>
+      </div>
+      <div class="check"></div>
+    </div>
+  `).join('');
+  opts += `
+    <div class="option ${isCustom ? 'active' : ''}" onclick="toggleCustomRange()">
+      <div>
+        <div class="opt-title">Custom</div>
+        <div class="opt-sub">${isCustom ? settings.minNum + '–' + settings.maxNum : 'Pick your own range'}</div>
+      </div>
+      <div class="check"></div>
+    </div>
+  `;
+  root.innerHTML = `
+    <div class="topbar">
+      <button class="ghost" onclick="go('menu')">← Back</button>
+      <h1 style="flex:1; margin:0;">⚙️ Settings</h1>
+      <div style="width:60px;"></div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px; color:var(--muted); margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Number range</div>
+      ${opts}
+      <div id="customRangeFields" style="display:${isCustom ? 'block' : 'none'}; margin-top:10px;">
+        <div class="row">
+          <input type="number" id="rangeMin" placeholder="Min" value="${settings.minNum}" min="1" />
+          <input type="number" id="rangeMax" placeholder="Max" value="${settings.maxNum}" min="2" />
+        </div>
+        <button class="secondary" onclick="applyCustomRange()">Apply Custom Range</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px; color:var(--muted); margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Your name</div>
+      <input type="text" id="nameInput" maxlength="14" placeholder="Your name" value="${settings.playerName}" />
+      <button class="secondary" onclick="saveName()">Save Name</button>
+    </div>
+    <div class="card">
+      <div class="option ${settings.haptics ? 'active' : ''}" onclick="toggleHaptics()">
+        <div>
+          <div class="opt-title">Haptic feedback</div>
+          <div class="opt-sub">Vibration on guesses (phones only)</div>
+        </div>
+        <div class="check"></div>
+      </div>
+    </div>
+  `;
+}
+function setRange(min, max) {
+  settings.minNum = min; settings.maxNum = max; saveSettings();
+  toast(`Range set to ${min}–${max}`, 'success');
+  render();
+}
+function toggleCustomRange() {
+  const el = document.getElementById('customRangeFields');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function applyCustomRange() {
+  const mn = parseInt(document.getElementById('rangeMin').value, 10);
+  const mx = parseInt(document.getElementById('rangeMax').value, 10);
+  if (!Number.isInteger(mn) || !Number.isInteger(mx)) { toast('Enter valid numbers', 'error'); return; }
+  if (mn < 1) { toast('Min must be ≥ 1', 'error'); return; }
+  if (mx <= mn) { toast('Max must be greater than min', 'error'); return; }
+  settings.minNum = mn; settings.maxNum = mx; saveSettings();
+  toast(`Range set to ${mn}–${mx}`, 'success');
+  render();
+}
+function saveName() {
+  const v = document.getElementById('nameInput').value.trim();
+  if (!v) { toast('Name cannot be empty', 'error'); return; }
+  settings.playerName = v; saveSettings();
+  toast('Name saved', 'success');
+}
+function toggleHaptics() {
+  settings.haptics = !settings.haptics; saveSettings();
+  vibrate(20);
+  render();
+}
+
+// ---------- setup ----------
+function renderSetupSecret(root) {
+  const p = state.players[state.setupTurn];
+  root.innerHTML = `
+    <h1>${p.name}</h1>
+    <h2><span style="color:var(--accent-2)">Secret</span> number</h2>
+    <div class="sub">Pick a number from <b>${settings.minNum}</b> to <b>${settings.maxNum}</b>.<br>Your opponent must guess this to win.</div>
+    <div class="card">
+      <input type="password" id="numInput" inputmode="numeric" pattern="[0-9]*" placeholder="${settings.minNum}–${settings.maxNum}" autocomplete="off" />
+      <button onclick="submitSecret()">Continue →</button>
+    </div>
+    <div class="hint">🤫 Tip: keep your screen private</div>
+  `;
+  setTimeout(() => document.getElementById('numInput').focus(), 50);
+}
+function renderSetupTrap(root) {
+  const p = state.players[state.setupTurn];
+  root.innerHTML = `
+    <h1>${p.name}</h1>
+    <h2><span style="color:var(--danger)">Trap</span> number</h2>
+    <div class="sub">If your opponent guesses this exact number, they lose instantly. Must be different from your secret.</div>
+    <div class="card">
+      <input type="password" id="numInput" inputmode="numeric" pattern="[0-9]*" placeholder="${settings.minNum}–${settings.maxNum}" autocomplete="off" />
+      <button onclick="submitTrap()">Continue →</button>
+    </div>
+    <div class="hint">💡 Tip: traps near common search points are deadliest</div>
+  `;
+  setTimeout(() => document.getElementById('numInput').focus(), 50);
+}
+function submitSecret() {
+  const v = parseInt(document.getElementById('numInput').value, 10);
+  if (!validNum(v)) { toast(`Enter ${settings.minNum}–${settings.maxNum}`, 'error'); vibrate(60); return; }
+  state.players[state.setupTurn].secret = v;
+  state.screen = 'setupTrap'; render();
+}
+function submitTrap() {
+  const v = parseInt(document.getElementById('numInput').value, 10);
+  const me = state.players[state.setupTurn];
+  if (!validNum(v)) { toast(`Enter ${settings.minNum}–${settings.maxNum}`, 'error'); vibrate(60); return; }
+  if (v === me.secret) { toast('Trap must differ from secret!', 'error'); vibrate(60); return; }
+  me.trap = v; finishSetup();
+}
+function finishSetup() {
+  if (state.mode === 'local') {
+    if (state.setupTurn === 0) {
+      state.setupTurn = 1;
+      showHandoff({
+        to: 'Pass to Player 2',
+        msg: 'Player 1 is locked in. Tap continue.',
+        btn: "I'm Player 2 →",
+        next: () => { state.screen = 'setupSecret'; render(); }
+      });
+    } else {
+      state.guessTurn = 0;
+      showHandoff({
+        to: 'Pass to Player 1',
+        msg: 'Both secrets locked. Player 1 guesses first.',
+        btn: "I'm Player 1 →",
+        next: () => { state.screen = 'guess'; render(); }
+      });
+    }
+  } else if (state.mode === 'ai') {
+    state.guessTurn = 0; state.screen = 'guess'; render();
+  } else if (state.mode === 'online') {
+    sendMsg({ type: 'ready' });
+    myReady = true;
+    if (oppReady) startOnlineGame();
+    else { state.screen = 'onlineWaitOpp'; render(); }
+  }
+}
+
+// ---------- handoff ----------
+function renderHandoff(root) {
+  const ctx = handoffCtx;
+  root.innerHTML = `
+    <h1>📲 Pass the phone</h1>
+    <h2>${ctx.to}</h2>
+    <div class="sub">${ctx.msg}</div>
+    <div class="card" style="text-align:center;">
+      <div style="font-size:72px; margin:24px 0;">👉</div>
+      <button onclick="handoffContinue()">${ctx.btn}</button>
+    </div>
+  `;
+}
+function showHandoff(ctx) { handoffCtx = ctx; state.screen = 'handoff'; render(); }
+function handoffContinue() { handoffCtx.next(); }
+
+// ---------- guess ----------
+function renderGuess(root) {
+  // online + not your turn → waiting view
+  if (state.mode === 'online' && state.guessTurn !== state.online.myIndex) {
+    return renderOnlineWaitTurn(root);
+  }
+  const me = state.guessTurn;
+  const p = state.players[me];
+  const opp = state.players[1 - me];
+
+  const total = settings.maxNum - settings.minNum + 1;
+  const remaining = total - p.eliminated.size;
+  const pct = Math.max(0, Math.round((remaining / total) * 100));
+
+  // grid only useful for small ranges
+  const showGrid = total <= 100;
+  let grid = '';
+  if (showGrid) {
+    for (let n = settings.minNum; n <= settings.maxNum; n++) {
+      const cls = p.eliminated.has(n) ? 'num-cell eliminated' : 'num-cell live';
+      grid += `<div class="${cls}">${n}</div>`;
+    }
+  }
+
+  // my history
+  let history = '';
+  if (p.guesses.length === 0) {
+    history = '<div class="hint">No guesses yet</div>';
+  } else {
+    [...p.guesses].reverse().forEach(g => {
+      const sym = g.result === 'higher' ? '<span class="arrow-up">↑ higher</span>'
+                : g.result === 'lower'  ? '<span class="arrow-down">↓ lower</span>'
+                : g.result;
+      history += `<div class="history-item"><span>Guessed <b>${g.n}</b></span><span>${sym}</span></div>`;
+    });
+  }
+
+  // opponent's history (their guesses only — no secret/trap revealed)
+  const oppRemaining = total - opp.eliminated.size;
+  const oppPct = Math.max(0, Math.round((oppRemaining / total) * 100));
+  let oppHistory = '';
+  if (opp.guesses.length === 0) {
+    oppHistory = '<div class="hint">' + opp.name + ' hasn\'t guessed yet</div>';
+  } else {
+    [...opp.guesses].reverse().forEach(g => {
+      const sym = g.result === 'higher' ? '<span class="arrow-up">↑ higher</span>'
+                : g.result === 'lower'  ? '<span class="arrow-down">↓ lower</span>'
+                : g.result;
+      oppHistory += `<div class="history-item"><span>Guessed <b>${g.n}</b></span><span>${sym}</span></div>`;
+    });
+  }
+
+  root.innerHTML = `
+    <div class="turn-banner">🎯 ${p.name}'s turn · guessing ${opp.name}</div>
+    <div class="stats">
+      <div class="stat"><div class="label">Range</div><div class="value">${p.lo}–${p.hi}</div></div>
+      <div class="stat"><div class="label">Left</div><div class="value">${remaining}</div></div>
+      <div class="stat"><div class="label">Guesses</div><div class="value">${p.guesses.length}</div></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="card">
+      <div class="big-number" id="display">${state.pendingGuess || '—'}</div>
+      <div class="keypad">
+        ${[1,2,3,4,5,6,7,8,9].map(d => `<button onclick="kp('${d}')">${d}</button>`).join('')}
+        <button class="clear" onclick="kp('C')">⌫</button>
+        <button onclick="kp('0')">0</button>
+        <button class="action" onclick="submitGuess()">Guess</button>
+      </div>
+    </div>
+    ${showGrid ? `
+    <div class="card">
+      <div style="font-size:13px; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Eliminated range</div>
+      <div class="range-grid">${grid}</div>
+    </div>` : ''}
+    <div class="card">
+      <div style="font-size:13px; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Your history (newest first)</div>
+      <div class="history">${history}</div>
+    </div>
+    <div class="card" style="border-left: 3px solid var(--accent-2);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">${opp.name}'s progress</div>
+        <div style="font-size:12px; color:var(--muted);">range ${opp.lo}–${opp.hi} · ${oppRemaining} left</div>
+      </div>
+      <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-fill" style="width:${oppPct}%; background: linear-gradient(90deg, var(--danger), var(--accent));"></div></div>
+      <div class="history">${oppHistory}</div>
+    </div>
+  `;
+}
+function kp(d) {
+  if (d === 'C') {
+    state.pendingGuess = state.pendingGuess.slice(0, -1);
+  } else if (state.pendingGuess.length < String(settings.maxNum).length) {
+    state.pendingGuess += d;
+  }
+  const el = document.getElementById('display');
+  if (el) {
+    el.textContent = state.pendingGuess || '—';
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  }
+  vibrate(8);
+}
+function submitGuess() {
+  const v = parseInt(state.pendingGuess, 10);
+  if (!validNum(v)) { toast(`Enter ${settings.minNum}–${settings.maxNum}`, 'error'); vibrate(60); return; }
+  const me = state.guessTurn;
+  if (state.players[me].eliminated.has(v)) {
+    toast('Already eliminated — pick a live number', 'error'); vibrate(60); return;
+  }
+  if (state.mode === 'online') {
+    sendMsg({ type: 'guess', n: v });
+    state.pendingGuess = '';
+    // show waiting placeholder until opponent responds
+    app.innerHTML = `<div class="screen"><h1>⏳ Waiting</h1><div class="sub">Sent guess <b>${v}</b>. Opponent is checking.</div></div>`;
+    return;
+  }
+  const opp = 1 - me;
+  const result = evaluateGuess(v, state.players[opp]);
+  applyGuessResult(me, v, result);
+}
+function evaluateGuess(n, target) {
+  if (n === target.trap)   return 'trap';
+  if (n === target.secret) return 'win';
+  if (n < target.secret)   return 'higher';
+  return 'lower';
+}
+function applyGuessResult(me, n, result) {
+  const meP = state.players[me];
+  const oppI = 1 - me;
+  meP.guesses.push({ n, result });
+  meP.eliminated.add(n);
+  if (result === 'higher') {
+    meP.lo = Math.max(meP.lo, n + 1);
+    for (let k = settings.minNum; k <= n; k++) meP.eliminated.add(k);
+  } else if (result === 'lower') {
+    meP.hi = Math.min(meP.hi, n - 1);
+    for (let k = n; k <= settings.maxNum; k++) meP.eliminated.add(k);
+  }
+  state.pendingGuess = '';
+
+  if (result === 'win') {
+    meP.won = true;
+    gameOverReason = `${meP.name} guessed ${state.players[oppI].name}'s secret (${n}).`;
+    vibrate([40, 60, 100]);
+    state.screen = 'gameover'; render();
+    return;
+  }
+  if (result === 'trap') {
+    meP.dead = true; state.players[oppI].won = true;
+    gameOverReason = `${meP.name} stepped on ${state.players[oppI].name}'s trap (${n})!`;
+    vibrate([100, 80, 100, 80, 200]);
+    state.screen = 'gameover'; render();
+    return;
+  }
+
+  vibrate(30);
+
+  if (state.mode === 'local') {
+    showReveal({
+      title: `${meP.name} guessed ${n}`,
+      subtitle: result === 'higher' ? 'Go HIGHER ↑' : 'Go LOWER ↓',
+      number: n,
+      outcomeText: `Your turn, ${state.players[oppI].name}.`,
+      btnText: 'Continue →',
+      after: () => { state.guessTurn = oppI; state.screen = 'guess'; render(); },
+    });
+  } else if (state.mode === 'ai') {
+    state.guessTurn = oppI;
+    state.screen = 'guess'; render();
+    if (oppI === 1) setTimeout(aiTakeTurn, 900);
+  } else if (state.mode === 'online') {
+    state.guessTurn = oppI;
+    state.screen = 'guess'; render();
+  }
+}
+
+// ---------- reveal (pass-and-play) ----------
+function renderReveal(root) {
+  const r = revealCtx;
+  root.innerHTML = `
+    <h1>${r.title}</h1>
+    <h2>${r.subtitle}</h2>
+    <div class="card" style="text-align:center;">
+      <div class="big-number pop">${r.number}</div>
+      <div style="font-size:16px; margin:14px 0; color:var(--muted);">${r.outcomeText}</div>
+      <button onclick="afterReveal()">${r.btnText}</button>
+    </div>
+  `;
+}
+function showReveal(ctx) { revealCtx = ctx; state.screen = 'reveal'; render(); }
+function afterReveal() { revealCtx.after(); }
+
+// ---------- game over ----------
+function renderGameOver(root) {
+  const winner = state.players.find(p => p.won) || state.players[0];
+  root.innerHTML = `
+    <h1>🏆 Game Over</h1>
+    <h2 style="color:var(--accent-2)">${winner.name} wins!</h2>
+    <div class="card" style="text-align:center;">
+      <div style="font-size:14px; color:var(--muted); margin-bottom:16px;">${gameOverReason}</div>
+      <div style="text-align:left; margin:14px 0; padding: 14px; background: var(--bg-2); border-radius: 10px;">
+        <div><b>${state.players[0].name}</b> · secret <span class="badge safe">${state.players[0].secret}</span> · trap <span class="badge">${state.players[0].trap}</span></div>
+        <div style="margin-top:8px;"><b>${state.players[1].name}</b> · secret <span class="badge safe">${state.players[1].secret}</span> · trap <span class="badge">${state.players[1].trap}</span></div>
+      </div>
+      <button class="success" onclick="resetGame()">🔁 Play Again</button>
+      <button class="secondary" onclick="backToMenu()">← Main Menu</button>
+    </div>
+  `;
+  setTimeout(confetti, 100);
+}
+
+// ---------- AI ----------
+function aiTakeTurn() {
+  const ai = state.players[1], player = state.players[0];
+  let pick = Math.floor((ai.lo + ai.hi) / 2);
+  if (ai.hi - ai.lo > 2 && Math.random() < 0.3) {
+    pick += Math.random() < 0.5 ? -1 : 1;
+    pick = Math.max(ai.lo, Math.min(ai.hi, pick));
+  }
+  while (ai.eliminated.has(pick) && pick < ai.hi) pick++;
+  if (ai.eliminated.has(pick)) pick = ai.lo;
+  const result = evaluateGuess(pick, player);
+  applyGuessResult(1, pick, result);
+}
+
+// ---------- mode starters ----------
+function startLocal() {
+  state.mode = 'local';
+  state.screen = 'pickRange'; render();
+}
+function startAI() {
+  state.mode = 'ai';
+  state.screen = 'pickRange'; render();
+}
+
+// pre-game range picker
+function renderPickRange(root) {
+  const modeLabel = state.mode === 'ai' ? '🤖 Vs. AI Bot' : '📱 Pass & Play';
+  const isCustom = !RANGE_PRESETS.some(p => p.min === settings.minNum && p.max === settings.maxNum);
+  let opts = RANGE_PRESETS.map(p => `
+    <div class="option ${(!isCustom && settings.minNum===p.min && settings.maxNum===p.max) ? 'active' : ''}" onclick="setRange(${p.min},${p.max})">
+      <div><div class="opt-title">${p.label}</div><div class="opt-sub">${p.sub}</div></div>
+      <div class="check"></div>
+    </div>`).join('');
+  opts += `
+    <div class="option ${isCustom ? 'active' : ''}" onclick="toggleCustomRange()">
+      <div><div class="opt-title">Custom</div><div class="opt-sub">${isCustom ? settings.minNum + '–' + settings.maxNum : 'Pick your own range (min ≥ 1)'}</div></div>
+      <div class="check"></div>
+    </div>`;
+  root.innerHTML = `
+    <div class="topbar">
+      <button class="ghost" onclick="backToMenu()">← Back</button>
+      <h1 style="flex:1; margin:0; font-size:22px;">${modeLabel}</h1>
+      <div style="width:60px;"></div>
+    </div>
+    <h2>Choose game range</h2>
+    <div class="sub">Both players play within this range. Min ≥ 1, no upper limit.</div>
+    <div class="card">
+      ${opts}
+      <div id="customRangeFields" style="display:${isCustom ? 'block' : 'none'}; margin-top:10px;">
+        <div class="row">
+          <input type="number" id="rangeMin" placeholder="From (≥1)" value="${settings.minNum}" min="1" />
+          <input type="number" id="rangeMax" placeholder="To" value="${settings.maxNum}" min="2" />
+        </div>
+        <button class="secondary" onclick="applyCustomRange()">Apply</button>
+        <div class="hint">Examples: 1–200, 100–500, 1–1000</div>
+      </div>
+    </div>
+    <div class="card">
+      <button class="success" onclick="startGameAfterRange()">▶ Start Game (${settings.minNum}–${settings.maxNum})</button>
+    </div>
+  `;
+}
+
+function startGameAfterRange() {
+  if (state.mode === 'local') {
+    state.players = [freshPlayer('Player 1'), freshPlayer('Player 2')];
+    state.setupTurn = 0;
+    showHandoff({
+      to: 'Player 1, you go first',
+      msg: 'Tap continue when ready to set your secret and trap.',
+      btn: "I'm Player 1 →",
+      next: () => { state.screen = 'setupSecret'; render(); }
+    });
+  } else if (state.mode === 'ai') {
+    state.players = [freshPlayer(settings.playerName), freshPlayer('AI Bot')];
+    const aiSecret = randInt(settings.minNum, settings.maxNum);
+    let aiTrap; do { aiTrap = randInt(settings.minNum, settings.maxNum); } while (aiTrap === aiSecret);
+    state.players[1].secret = aiSecret;
+    state.players[1].trap = aiTrap;
+    state.setupTurn = 0;
+    state.screen = 'setupSecret'; render();
+  }
+}
+function goOnlineMenu() { state.screen = 'onlineMenu'; render(); }
+function go(s) { state.screen = s; render(); }
+
+function resetGame() {
+  if (state.mode === 'local')      startLocal();
+  else if (state.mode === 'ai')    startAI();
+  else if (state.mode === 'online') leaveOnline();
+}
+function backToMenu() {
+  leaveOnline();
+  state.mode = null;
+  state.players = [freshPlayer('Player 1'), freshPlayer('Player 2')];
+  state.pendingGuess = '';
+  state.screen = 'menu'; render();
+}
+
+// ---------- online ----------
+function renderOnlineMenu(root) {
+  root.innerHTML = `
+    <div class="topbar">
+      <button class="ghost" onclick="go('menu')">← Back</button>
+      <h1 style="flex:1; margin:0;">🌐 Online</h1>
+      <div style="width:60px;"></div>
+    </div>
+    <div class="sub">Play a friend on another device. One person hosts, the other joins with a code.</div>
+    <div class="card">
+      <button onclick="hostRoom()">🏠 Host a Room</button>
+      <button class="secondary" onclick="joinRoom()">🔑 Join with Code</button>
+    </div>
+    <div class="card">
+      <div style="font-size:13px; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">How it works</div>
+      <ol style="padding-left:20px; line-height:1.7; font-size:14px; margin:0;">
+        <li>One player taps <b>Host a Room</b> → gets a 5-letter code</li>
+        <li>Share the code (WhatsApp, SMS, whatever)</li>
+        <li>The other player taps <b>Join with Code</b> and enters it</li>
+        <li>Both pick secret + trap, then guess in turns</li>
+      </ol>
+      <div class="hint" style="margin-top:10px;">📱 Both players need this page open · needs internet · host's range is used</div>
+      <div class="hint">🧪 To test on one device: open the page in two browser tabs.</div>
+    </div>
+  `;
+}
+function onlineStatusText() {
+  switch (state.online.status) {
+    case 'connecting': return 'Registering with broker…';
+    case 'waiting':    return 'Ready — share the code with your opponent';
+    case 'connected':  return 'Opponent connected!';
+    case 'error':      return 'Connection error';
+    default:           return 'Preparing…';
+  }
+}
+function peerErrorMessage(e) {
+  switch (e && e.type) {
+    case 'unavailable-id':       return 'Code in use — close other tabs and retry.';
+    case 'peer-unavailable':     return 'Room not found — check the code.';
+    case 'network':              return 'No internet — check your connection.';
+    case 'disconnected':         return 'Lost connection to broker.';
+    case 'server-error':         return 'Broker is down — try again in a moment.';
+    case 'socket-error':         return 'Socket error — bad network.';
+    case 'webrtc':               return 'Network blocks P2P — try mobile hotspot.';
+    case 'browser-incompatible': return 'Browser does not support WebRTC.';
+    default:                     return 'Error: ' + (e && e.type || 'unknown');
+  }
+}
+async function copyCode() {
+  if (!state.online.code) return;
+  try {
+    await navigator.clipboard.writeText(state.online.code);
+    toast('Code copied!', 'success');
+  } catch {
+    toast('Could not copy — long-press the code', 'error');
+  }
+}
+function renderOnlineHost(root) {
+  const o = state.online;
+  const dotClass = o.status === 'connected' ? 'connected' : (o.status === 'error' ? 'error' : '');
+  root.innerHTML = `
+    <h1>🏠 Hosting</h1>
+    <div class="sub">Share this code with your opponent.</div>
+    <div class="card">
+      <div class="room-code" id="roomCodeDisplay">${o.code || '...'}</div>
+      <button class="secondary" onclick="copyCode()" style="margin-top:0;">📋 Copy Code</button>
+      <div style="text-align:center; margin: 12px 0;">
+        <span class="status-dot ${dotClass}"></span>
+        <span style="color:var(--muted); font-size:14px;">${onlineStatusText()}</span>
+      </div>
+      ${o.error ? `<div class="hint" style="color:var(--danger);">${o.error}</div>` : ''}
+      <button class="secondary" onclick="leaveOnline()">Cancel</button>
+    </div>
+    <div class="hint">Range: ${settings.minNum}–${settings.maxNum} (sent to joiner)</div>
+  `;
+}
+function renderOnlineJoin(root) {
+  const o = state.online;
+  root.innerHTML = `
+    <h1>🔑 Join Room</h1>
+    <div class="sub">Enter the room code from your opponent.</div>
+    <div class="card">
+      <input type="text" id="codeInput" autocapitalize="characters" maxlength="8" placeholder="CODE" style="letter-spacing:6px; text-transform:uppercase; font-size:22px;" />
+      <button onclick="doJoin()">Connect</button>
+      ${o.error ? `<div class="hint" style="color:var(--danger);">${o.error}</div>` : ''}
+      <button class="secondary" onclick="leaveOnline()">← Back</button>
+    </div>
+  `;
+  setTimeout(() => document.getElementById('codeInput').focus(), 50);
+}
+function renderOnlineWaitOpp(root) {
+  root.innerHTML = `
+    <h1>⏳ Waiting</h1>
+    <div class="sub">Your secret &amp; trap are locked in. Waiting for opponent…</div>
+    <div class="card" style="text-align:center;">
+      <div style="font-size:64px; margin:24px 0;">🤝</div>
+      <button class="secondary" onclick="leaveOnline()">Leave</button>
+    </div>
+  `;
+}
+function renderOnlineWaitTurn(root) {
+  const myIdx = state.online.myIndex;
+  const me = state.players[myIdx];
+  const opp = state.players[1 - myIdx];
+  const total = settings.maxNum - settings.minNum + 1;
+  const oppRemaining = total - opp.eliminated.size;
+  const oppPct = Math.max(0, Math.round((oppRemaining / total) * 100));
+
+  let history = '';
+  if (me.guesses.length === 0) history = '<div class="hint">No guesses yet</div>';
+  else {
+    [...me.guesses].reverse().forEach(g => {
+      const sym = g.result === 'higher' ? '<span class="arrow-up">↑ higher</span>'
+                : g.result === 'lower'  ? '<span class="arrow-down">↓ lower</span>'
+                : g.result;
+      history += `<div class="history-item"><span>You guessed <b>${g.n}</b></span><span>${sym}</span></div>`;
+    });
+  }
+  let oppHistory = '';
+  if (opp.guesses.length === 0) oppHistory = '<div class="hint">' + opp.name + ' hasn\'t guessed yet</div>';
+  else {
+    [...opp.guesses].reverse().forEach(g => {
+      const sym = g.result === 'higher' ? '<span class="arrow-up">↑ higher</span>'
+                : g.result === 'lower'  ? '<span class="arrow-down">↓ lower</span>'
+                : g.result;
+      oppHistory += `<div class="history-item"><span>Guessed <b>${g.n}</b></span><span>${sym}</span></div>`;
+    });
+  }
+
+  root.innerHTML = `
+    <div class="turn-banner">⏳ ${opp.name}'s turn</div>
+    <div class="sub">They're guessing your secret.</div>
+    <div class="card" style="text-align:center;">
+      <div style="font-size:48px; margin:8px 0;">🤔</div>
+      <div style="color:var(--muted); font-size:13px;">Your secret <span class="badge safe">${me.secret}</span> · trap <span class="badge">${me.trap}</span></div>
+    </div>
+    <div class="card" style="border-left: 3px solid var(--accent-2);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">${opp.name}'s progress</div>
+        <div style="font-size:12px; color:var(--muted);">range ${opp.lo}–${opp.hi} · ${oppRemaining} left</div>
+      </div>
+      <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-fill" style="width:${oppPct}%; background: linear-gradient(90deg, var(--danger), var(--accent));"></div></div>
+      <div class="history">${oppHistory}</div>
+    </div>
+    <div class="card">
+      <div style="font-size:13px; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Your history</div>
+      <div class="history">${history}</div>
+    </div>
+  `;
+}
+
+function makeCode() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let s = ''; for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+function hostRoom() {
+  state.mode = 'online';
+  state.online.isHost = true; state.online.myIndex = 0;
+  state.online.code = makeCode();
+  state.online.status = 'connecting'; state.online.error = null;
+  state.players = [freshPlayer(settings.playerName), freshPlayer('Opponent')];
+  state.screen = 'onlineHost'; render();
+
+  const peerId = 'guessduel-' + state.online.code;
+  state.online.peer = new Peer(peerId, { debug: 1 });
+  state.online.peer.on('open', () => {
+    if (state.online.status !== 'connected') {
+      state.online.status = 'waiting';
+      state.online.error = null;
+      if (state.screen === 'onlineHost') render();
+    }
+  });
+  state.online.peer.on('connection', (conn) => {
+    state.online.conn = conn;
+    setupConnHandlers(conn);
+  });
+  state.online.peer.on('disconnected', () => {
+    if (state.online.status !== 'connected') {
+      state.online.status = 'error';
+      state.online.error = 'Disconnected from broker — try again.';
+      render();
+    }
+  });
+  state.online.peer.on('error', (e) => {
+    state.online.status = 'error';
+    state.online.error = peerErrorMessage(e);
+    render();
+  });
+}
+function joinRoom() {
+  state.mode = 'online';
+  state.online.isHost = false; state.online.myIndex = 1; state.online.error = null;
+  state.players = [freshPlayer('Opponent'), freshPlayer(settings.playerName)];
+  state.screen = 'onlineJoin'; render();
+}
+function doJoin() {
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if (code.length < 4) { state.online.error = 'Enter a valid code'; render(); return; }
+  state.online.code = code; state.online.status = 'connecting'; state.online.error = null;
+  const myId = 'guessduel-joiner-' + Math.random().toString(36).slice(2, 8);
+  state.online.peer = new Peer(myId, { debug: 1 });
+  state.online.peer.on('open', () => {
+    const conn = state.online.peer.connect('guessduel-' + code, { reliable: true });
+    state.online.conn = conn;
+    setupConnHandlers(conn);
+  });
+  state.online.peer.on('error', (e) => {
+    state.online.status = 'error';
+    state.online.error = peerErrorMessage(e);
+    render();
+  });
+}
+function setupConnHandlers(conn) {
+  conn.on('open', () => {
+    state.online.status = 'connected';
+    if (state.online.isHost) {
+      // host announces range so joiner uses same settings
+      sendMsg({ type: 'range', min: settings.minNum, max: settings.maxNum, hostName: settings.playerName });
+    } else {
+      sendMsg({ type: 'helloFromJoiner', name: settings.playerName });
+    }
+    state.setupTurn = state.online.myIndex;
+    state.screen = 'setupSecret'; render();
+  });
+  conn.on('data', (msg) => handleMsg(msg));
+  conn.on('close', () => { state.online.status = 'error'; state.online.error = 'Opponent left.'; render(); });
+  conn.on('error', () => { state.online.status = 'error'; state.online.error = 'Connection error'; render(); });
+}
+function sendMsg(msg) {
+  if (state.online.conn && state.online.conn.open) state.online.conn.send(msg);
+}
+function handleMsg(msg) {
+  if (msg.type === 'range') {
+    // joiner adopts host's range for this session (don't persist)
+    settings.minNum = msg.min; settings.maxNum = msg.max;
+    state.players[0].name = msg.hostName || 'Opponent';
+    state.players[0].lo = msg.min; state.players[0].hi = msg.max;
+    state.players[1].lo = msg.min; state.players[1].hi = msg.max;
+    if (state.screen === 'setupSecret' || state.screen === 'setupTrap') render();
+  } else if (msg.type === 'helloFromJoiner') {
+    state.players[1].name = msg.name || 'Opponent';
+  } else if (msg.type === 'ready') {
+    oppReady = true;
+    if (myReady) startOnlineGame();
+  } else if (msg.type === 'guess') {
+    const me = state.players[state.online.myIndex];
+    const result = evaluateGuess(msg.n, me);
+    sendMsg({ type: 'result', n: msg.n, result });
+    const oppI = 1 - state.online.myIndex;
+    applyGuessResult(oppI, msg.n, result);
+  } else if (msg.type === 'result') {
+    applyGuessResult(state.online.myIndex, msg.n, msg.result);
+  }
+}
+function startOnlineGame() {
+  state.guessTurn = 0;
+  state.screen = 'guess'; render();
+}
+function leaveOnline() {
+  if (state.online.conn) try { state.online.conn.close(); } catch {}
+  if (state.online.peer) try { state.online.peer.destroy(); } catch {}
+  state.online = { peer: null, conn: null, isHost: false, myIndex: 0, code: null, status: 'disconnected', error: null };
+  myReady = false; oppReady = false;
+  // restore user's persisted range in case online overrode it
+  const fresh = loadSettings();
+  settings.minNum = fresh.minNum; settings.maxNum = fresh.maxNum;
+  state.screen = 'menu'; render();
+}
+
+// ---------- download ----------
+async function downloadApp() {
+  let html;
+  try {
+    const res = await fetch(location.href);
+    html = await res.text();
+  } catch {
+    html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  }
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'guess-duel.html';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('Saved guess-duel.html', 'success');
+  vibrate(40);
+}
+
+// boot
+render();
+</script>
+</body>
+</html>
