@@ -398,7 +398,27 @@ const state = {
   pendingGuess: '',
 };
 let myReady = false, oppReady = false;
+let myRematch = false, oppRematch = false;
 let handoffCtx = {}, revealCtx = {}, gameOverReason = '';
+
+// PeerJS config — STUN + free public TURN relays (openrelay.metered.ca).
+// TURN is required when players are on cellular, CGNAT, or restrictive WiFi
+// (cafés, hotels, work networks) where direct P2P fails. Without TURN the
+// connection silently hangs forever — this is what made "online" stop working
+// when leaving the home network.
+const PEER_CONFIG = {
+  debug: 1,
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:openrelay.metered.ca:80' },
+      { urls: 'turn:openrelay.metered.ca:80',             username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443',            username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    ],
+  },
+};
 const app = document.getElementById('app');
 
 // ---------- helpers ----------
@@ -441,6 +461,7 @@ function render() {
     onlineHost: renderOnlineHost,
     onlineJoin: renderOnlineJoin,
     onlineWaitOpp: renderOnlineWaitOpp,
+    onlineWaitRematch: renderOnlineWaitRematch,
   };
   app.innerHTML = '';
   const wrap = document.createElement('div');
@@ -859,6 +880,11 @@ function renderGameOver(root) {
   const winner = state.players.find(p => p.won) || state.players[0];
   const p1 = state.players[0], p2 = state.players[1];
   const stillWaiting = state.mode === 'online' && (p1.secret == null || p2.secret == null);
+  const oppWantsRematch = state.mode === 'online' && oppRematch && !myRematch;
+  const oppName = state.mode === 'online' ? state.players[1 - state.online.myIndex].name : '';
+  const playAgainLabel = oppWantsRematch
+    ? `🔁 Accept Rematch — ${oppName} is ready!`
+    : '🔁 Play Again';
   root.innerHTML = `
     <h1>🏆 Game Over</h1>
     <h2 style="color:var(--accent-2)">${winner.name} wins!</h2>
@@ -868,7 +894,7 @@ function renderGameOver(root) {
       ${stillWaiting ? '<div class="hint">Waiting for opponent\'s reveal…</div>' : ''}
       ${playerRevealBlock(p1)}
       ${playerRevealBlock(p2)}
-      <button class="success" onclick="resetGame()" style="margin-top:14px;">🔁 Play Again</button>
+      <button class="success" onclick="resetGame()" style="margin-top:14px;">${playAgainLabel}</button>
       <button class="secondary" onclick="backToMenu()">← Main Menu</button>
     </div>
   `;
@@ -964,7 +990,7 @@ function go(s) { state.screen = s; render(); }
 function resetGame() {
   if (state.mode === 'local')      startLocal();
   else if (state.mode === 'ai')    startAI();
-  else if (state.mode === 'online') leaveOnline();
+  else if (state.mode === 'online') requestRematch();
 }
 function backToMenu() {
   leaveOnline();
@@ -1139,7 +1165,7 @@ function hostRoom() {
   state.screen = 'onlineHost'; render();
 
   const peerId = 'guessduel-' + state.online.code;
-  state.online.peer = new Peer(peerId, { debug: 1 });
+  state.online.peer = new Peer(peerId, PEER_CONFIG);
   state.online.peer.on('open', () => {
     if (state.online.status !== 'connected') {
       state.online.status = 'waiting';
@@ -1175,7 +1201,7 @@ function doJoin() {
   if (code.length < 4) { state.online.error = 'Enter a valid code'; render(); return; }
   state.online.code = code; state.online.status = 'connecting'; state.online.error = null;
   const myId = 'guessduel-joiner-' + Math.random().toString(36).slice(2, 8);
-  state.online.peer = new Peer(myId, { debug: 1 });
+  state.online.peer = new Peer(myId, PEER_CONFIG);
   state.online.peer.on('open', () => {
     const conn = state.online.peer.connect('guessduel-' + code, { reliable: true });
     state.online.conn = conn;
@@ -1236,7 +1262,54 @@ function handleMsg(msg) {
     state.players[oppI].secret = msg.secret;
     state.players[oppI].trap = msg.trap;
     if (state.screen === 'gameover') render();
+  } else if (msg.type === 'rematch') {
+    oppRematch = true;
+    if (myRematch) {
+      startRematch();
+    } else {
+      const oppName = state.players[1 - state.online.myIndex].name;
+      toast(`${oppName} wants a rematch!`, 'success');
+      if (state.screen === 'gameover') render();
+    }
   }
+}
+function requestRematch() {
+  if (!state.online.conn || !state.online.conn.open) {
+    toast('Connection lost — returning to menu', 'error');
+    leaveOnline();
+    return;
+  }
+  myRematch = true;
+  sendMsg({ type: 'rematch' });
+  if (oppRematch) {
+    startRematch();
+  } else {
+    state.screen = 'onlineWaitRematch'; render();
+  }
+}
+function startRematch() {
+  myRematch = false; oppRematch = false;
+  myReady = false; oppReady = false;
+  gameOverReason = '';
+  state.pendingGuess = '';
+  // preserve player names and online session; reset everything game-related
+  const name0 = state.players[0].name, name1 = state.players[1].name;
+  state.players = [freshPlayer(name0), freshPlayer(name1)];
+  state.setupTurn = state.online.myIndex;
+  state.guessTurn = 0;
+  state.screen = 'setupSecret'; render();
+}
+function renderOnlineWaitRematch(root) {
+  const oppName = state.players[1 - state.online.myIndex].name;
+  root.innerHTML = `
+    <h1>🔁 Rematch</h1>
+    <div class="sub">Waiting for ${oppName} to accept the rematch…</div>
+    <div class="card" style="text-align:center;">
+      <div style="font-size:64px; margin:24px 0;">🤝</div>
+      <div class="hint" style="margin-bottom:14px;">You'll keep the same room — no need to rejoin.</div>
+      <button class="secondary" onclick="leaveOnline()">Leave Match</button>
+    </div>
+  `;
 }
 function startOnlineGame() {
   state.guessTurn = 0;
@@ -1247,6 +1320,7 @@ function leaveOnline() {
   if (state.online.peer) try { state.online.peer.destroy(); } catch {}
   state.online = { peer: null, conn: null, isHost: false, myIndex: 0, code: null, status: 'disconnected', error: null };
   myReady = false; oppReady = false;
+  myRematch = false; oppRematch = false;
   // restore user's persisted range in case online overrode it
   const fresh = loadSettings();
   settings.minNum = fresh.minNum; settings.maxNum = fresh.maxNum;
